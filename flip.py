@@ -7,7 +7,7 @@ from gi.repository import GObject
 #from gi.repository import GstVideo  # for sink.set_window_handle()
 
 import os, commands
-from string import split, join
+from string import split, join, lower, upper
 import time
 import signal
 signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -24,18 +24,29 @@ def on_clicked (widget, eventkey):
   print "Clicked!!"
 
 def on_key_release (widget, eventkey):
+  # set up a dictionary for maniupating camera settings...
+  camctl = {}
+  camctl['f'] = camctl['F'] = ['focus_absolute', 5, 0, 250]
+  camctl['e'] = camctl['E'] = ['exposure_absolute', 1, 3, 2047]
+  camctl['w'] = camctl['W'] = ['white_balance_temperature', 1, 2000, 6500]
+  camctl['g'] = camctl['G'] = ['gain', 1, 0, 255]
+  camctl['z'] = camctl['Z'] = ['zoom_absolute', 1, 100, 500]
+
   print 'keyboard:', eventkey.string, repr(eventkey.string)
   if eventkey.string=='q': 
       print 'Quitting...'
       window.destroy()
+  if eventkey.string in ['k', 'K']:
+      # write semaphore file to tell preview to stop...
+      open('/dev/shm/die','w').write('die')
   if eventkey.string=='c':
       print 'Start capturing...'
       os.system('python gstcapture.py')
       widget.queue_draw()
-  if eventkey.string=='r':
+  if eventkey.string=='r': # redraw screen...
       print 'attempted redraw... '
       widget.queue_draw()
-  if eventkey.string=='p':
+  if eventkey.string=='p': # open camera preview to adjust settings...
       print 'Preview (for adjusting camra)...'
       os.system('python gstpreview.py &')
       widget.queue_draw()
@@ -47,38 +58,18 @@ def on_key_release (widget, eventkey):
       # unlock camera settings...
       print 'Unlock camera settings...'
       os.system('v4l2-ctl -d /dev/video1 -c focus_auto=1,exposure_auto=3,white_balance_temperature_auto=1,exposure_auto_priority=1')
-  if eventkey.string in ['y','v']:
-      a, wb = commands.getstatusoutput('v4l2-ctl -d /dev/video1 -C  white_balance_temperature')
-      wb = eval(split(wb, ':')[1])
-      if eventkey.string=='y': wb +=20
-      if eventkey.string=='v': wb -=20
-      if wb<2000: wb=2000
-      if wb>6500: wb=6500
-      os.system('v4l2-ctl -d /dev/video1 -c white_balance_temperature='+str(wb))
-      print 'New white balance:', wb
-  if eventkey.string == 'D':
-      os.system('v4l2-ctl -d /dev/video1  -C brightness -C contrast -C saturation -C white_balance_temperature_auto -C gain -C power_line_frequency -C white_balance_temperature -C sharpness -C backlight_compensation -C exposure_auto -C exposure_absolute -C exposure_auto_priority -C pan_absolute -C tilt_absolute -C focus_absolute -C focus_auto -C zoom_absolute -C led1_mode -C led1_frequency')
-  if eventkey.string == 'd':
-      os.system('v4l2-ctl -d /dev/video1  -C white_balance_temperature_auto -C gain -C white_balance_temperature -C exposure_auto -C exposure_absolute -C focus_absolute -C focus_auto')
-  if eventkey.string in ['g','G']:
-      a, wb = commands.getstatusoutput('v4l2-ctl -d /dev/video1 -C  gain')
-      wb = eval(split(wb, ':')[1])
-      if eventkey.string=='G': wb +=5
-      if eventkey.string=='g': wb -=5
-      if wb<0: wb=0
-      if wb>255: wb=255
-      os.system('v4l2-ctl -d /dev/video1 -c gain='+str(wb))
-      print 'New gain:', wb
-  if eventkey.string in ['e','E']:
-      a, wb = commands.getstatusoutput('v4l2-ctl -d /dev/video1 -C  exposure_absolute')
-      wb = eval(split(wb, ':')[1])
-      if eventkey.string=='E': wb +=20
-      if eventkey.string=='e': wb -=20
-      if wb<3: wb=3
-      if wb>2047: wb=2047
-      os.system('v4l2-ctl -d /dev/video1 -c exposure_absolute='+str(wb))
-      print 'New exposure:', wb
-
+  # do camera stuff...
+  if eventkey.string in camctl.keys():
+      a, value = commands.getstatusoutput('v4l2-ctl -d /dev/video1 -C  ' + camctl[eventkey.string][0] )
+      value = eval(split(value, ':')[1])
+      if lower(eventkey.string)==eventkey.string: 
+         value += camctl[eventkey.string][1] 
+      else: 
+         value -= camctl[eventkey.string][1]
+      if value<camctl[eventkey.string][2]: value=camctl[eventkey.string][2]
+      if value>camctl[eventkey.string][3]: value=camctl[eventkey.string][3]
+      os.system('v4l2-ctl -d /dev/video1 -c ' + camctl[eventkey.string][0] + '=' + str(value))
+      print 'New '+camctl[eventkey.string][0], value
 
 if __name__=="__main__":
     Gdk.init([])
