@@ -17,7 +17,7 @@ def main():
 
  # assemble gst command line...
  videosrc = '''v4l2src device=/dev/video1 name=src ! timeoverlay name=tover ! '''
- imgoverlay = ''' gdkpixbufoverlay location=sqwhite4.png offset-x=300 offset-y=300 name=pixbufover ! '''
+# imgoverlay = ''' gdkpixbufoverlay location=/home/debian/fgst/flipbooth/viewfinder1.png name=pixbufover ! '''
  tplusqueue = ''' tee name=t  t. ! queue ! video/x-raw,width=1280,height=720,framerate=30/1 ! queue name=q ! '''
  videoflip =  '''  videoflip method=4 name=vflip ! '''
  textoverlay = ''' textoverlay text=t valignment=top halignment=center font-desc="calibri 275px" name=txtover ! '''
@@ -37,20 +37,30 @@ def main():
  #ov = pipe.get_by_name('pixbufover')
  txov = pipe.get_by_name('txtover')
 
+ # generate countdown...
  for j in range(5, 0, -1):
-      #ov.set_property('location', 'sqwhite'+str(j)+'.png')
       txov.set_property('text', str(j))
       time.sleep(0.75)
 
+ txov.set_property('text', '') # clear countdown text...
+
+ # overlaying image makes time lag waaaaay too long....
+ # change overlay so that it has the record dot...
+ #imgov = pipe.get_by_name('pixbufover')
+ #imgov.set_property('location', '/home/debian/fgst/flipbooth/viewfinder2.png')
+
  time.sleep(0.4)
- for j in range(9):
+ for j in range(9): # use for 0.5 blink rate for text...
+# for j in range(10): # use for 0.35 blink rate for viewfinder overlay...
    txov.set_property('color', 0xFFFF0000)
    txov.set_property('font-desc', 'calibiri 100px')
    txov.set_property('text','Recording')
+#   imgov.set_property('location', '/home/debian/fgst/flipbooth/viewfinder2.png')
    time.sleep(0.5)
    txov.set_property('text','')
+#   imgov.set_property('location', '/home/debian/fgst/flipbooth/viewfinder1.png')
    time.sleep(0.5)
- 
+
  # stop gst...
  pipe.set_state(Gst.State.NULL)
 
